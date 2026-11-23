@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Photo Organizer AI — Duplikaty i Katalogowanie</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --panel: #171a23;
+      --panel-2: #1f2431;
+      --border: #2c3345;
+      --text: #eef1f7;
+      --muted: #98a2b3;
+      --accent: #4f8cff;
+      --accent-hover: #3b78eb;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: var(--panel);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+    header .sub { color: var(--muted); font-size: 13px; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 14px 28px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .tab {
+      padding: 10px 18px;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .tab.active {
+      background: var(--bg);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    main { max-width: 1320px; margin: 0 auto; padding: 24px 28px 60px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    label.inline { text-transform: none; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px; }
+    textarea, input, select {
+      width: 100%;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    input[type="checkbox"] { width: auto; }
+    textarea { min-height: 92px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s ease;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button.secondary { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+    button.secondary:hover:not(:disabled) { border-color: var(--accent); background: var(--panel-2); }
+    button.warn { background: var(--warn); color: #111; }
+    button.danger { background: var(--danger); color: #fff; }
+    button.ok { background: var(--ok); color: #052e16; }
+    button:disabled { opacity: 0.5; cursor: wait; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .stat .val { font-size: 22px; font-weight: 700; }
+    .stat .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 14px;
+    }
+    .item-card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .item-card img {
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+      background: #090b10;
+    }
+    .item-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .fname { font-size: 13px; font-weight: 600; word-break: break-all; }
+    .meta { font-size: 11px; color: var(--muted); word-break: break-all; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(79, 140, 255, 0.18);
+      color: #93c5fd;
+    }
+    .badge.high { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+    .badge.low { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+    .dup-group {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    .dup-group img, .file-icon {
+      width: 96px; height: 96px; object-fit: cover; border-radius: 8px; background: #090b10;
+      display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--muted); font-size: 13px;
+    }
+    .path-line { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 3px 0; word-break: break-all; }
+    .keep { color: #86efac; }
+    .dup { color: #fca5a5; }
+    .hidden { display: none !important; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: #111827; border: 1px solid var(--accent);
+      padding: 12px 16px; border-radius: 10px; font-size: 13px;
+      max-width: 440px; display: none; z-index: 100; box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Photo Organizer AI</h1>
+      <div class="sub" id="q-info">Kwarantanna: sprawdzam...</div>
+    </div>
+    <div class="row">
+      <button class="secondary" onclick="openQuarantineInFinder()">Otwórz kwarantannę w Finderze</button>
+      <button class="danger" onclick="trashQuarantine()">Przenieś kwarantannę do Kosza</button>
+      <button class="secondary" onclick="undoLast()">Cofnij (Undo)</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-dups" onclick="switchTab('dups')">1. Duplikaty (czyszczenie dysku)</button>
+    <button class="tab" id="tab-classify" onclick="switchTab('classify')">2. Klasyfikacja i katalogowanie AI</button>
+  </div>
+
+  <main>
+    <!-- ZAKŁADKA 1: DUPLIKATY -->
+    <section id="view-dups">
+      <div class="card">
+        <div class="grid-2">
+          <div>
+            <label>Foldery do skanowania duplikatów (po jednej ścieżce w linii)</label>
+            <textarea id="dup-folders"></textarea>
+          </div>
+          <div>
+            <label>Folder kwarantanny (wszystkie przeniesione kopie trafiają tu)</label>
+            <input id="dup-quarantine" />
+            <div style="height:10px"></div>
+            <label class="inline">
+              <input type="checkbox" id="dup-all-files" checked />
+              Wszystkie typy plików (zdjęcia + ZIP, DMG, PXD — pełne czyszczenie ~8 GB)
+            </label>
+            <label class="inline">
+              <input type="checkbox" id="dup-similar" />
+              Szukaj też wizualnie podobnych zdjęć (wolniejsze — skanuje piksele dHash)
+            </label>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button id="btn-dups" onclick="runDupScan()">Skanuj duplikaty</button>
+          <button class="warn hidden" id="btn-quarantine-all" onclick="quarantineAllExact()">Przenieś WSZYSTKIE dokładne kopie do kwarantanny</button>
+          <span id="dup-status" class="sub"></span>
+        </div>
+      </div>
+
+      <div class="stats hidden" id="dup-stats"></div>
+      <div id="dup-results"></div>
+    </section>
+
+    <!-- ZAKŁADKA 2: KLASYFIKACJA AI -->
+    <section id="view-classify" class="hidden">
+      <div class="card">
+        <div class="grid-2">
+          <div>
+            <label>Foldery do analizy (po jednej ścieżce w linii)</label>
+            <textarea id="cls-folders"></textarea>
+          </div>
+          <div>
+            <label>Folder docelowy dla posegregowanych kategorii</label>
+            <input id="cls-target" />
+            <div style="height:10px"></div>
+            <div class="grid-2">
+              <div>
+                <label>Silnik klasyfikacji</label>
+                <select id="cls-engine" onchange="toggleEngineFields()">
+                  <option value="ollama" selected>Ollama lokalnie (prawdziwe AI — qwen2.5vl:7b, offline)</option>
+                  <option value="gemini">Gemini Vision API (prawdziwe AI — najszybsze)</option>
+                  <option value="heuristic">Heurystyka bez AI (tylko po nazwach/wymiarach — niedokładna)</option>
+                </select>
+              </div>
+              <div>
+                <label>Limit obrazów (0 = WSZYSTKIE w folderze)</label>
+                <input id="cls-limit" type="number" value="25" min="0" max="50000" />
+              </div>
+            </div>
+            <div id="gemini-fields" class="hidden" style="margin-top:10px">
+              <label>Klucz GEMINI_API_KEY (lub z ENV)</label>
+              <input id="cls-apikey" type="password" placeholder="AIza..." />
+            </div>
+            <div id="ollama-fields" style="margin-top:10px">
+              <label>Model Ollama (np. qwen2.5vl:7b lub llama3.2-vision)</label>
+              <input id="cls-ollama-model" value="qwen2.5vl:7b" />
+            </div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button id="btn-classify" onclick="runClassify()">Analizuj obrazy</button>
+          <button class="ok hidden" id="btn-apply-org" onclick="applyOrganize()">Przenieś wybrane do katalogów</button>
+          <span id="cls-status" class="sub"></span>
+        </div>
+      </div>
+
+      <div class="stats hidden" id="cls-stats"></div>
+      <div class="gallery" id="cls-gallery"></div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    let CATEGORIES = [];
+    let CLASSIFIED_ITEMS = [];
+    let DUP_DATA = null;
+
+    function fmtSize(bytes) {
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let v = bytes || 0, i = 0;
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+      return `${v.toFixed(1)} ${units[i]}`;
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    function switchTab(name) {
+      document.getElementById('view-classify').classList.toggle('hidden', name !== 'classify');
+      document.getElementById('view-dups').classList.toggle('hidden', name !== 'dups');
+      document.getElementById('tab-classify').classList.toggle('active', name === 'classify');
+      document.getElementById('tab-dups').classList.toggle('active', name === 'dups');
+    }
+
+    function toggleEngineFields() {
+      const eng = document.getElementById('cls-engine').value;
+      document.getElementById('gemini-fields').classList.toggle('hidden', eng !== 'gemini');
+      document.getElementById('ollama-fields').classList.toggle('hidden', eng !== 'ollama');
+    }
+
+    async function refreshHeaderInfo() {
+      const res = await fetch('/api/defaults');
+      const data = await res.json();
+      document.getElementById('q-info').textContent =
+        `Kwarantanna: ${data.quarantine_dir} (${data.quarantine_count} plików, ${fmtSize(data.quarantine_bytes)})`;
+      return data;
+    }
+
+    async function init() {
+      const data = await refreshHeaderInfo();
+      CATEGORIES = data.categories;
+      document.getElementById('cls-folders').value = data.folders[0];
+      document.getElementById('dup-folders').value = data.folders.join('\n');
+      document.getElementById('cls-target').value = data.target_root;
+      document.getElementById('dup-quarantine').value = data.quarantine_dir;
+    }
+
+    async function openQuarantineInFinder() {
+      const folder = document.getElementById('dup-quarantine').value.trim();
+      await fetch('/api/open-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder }),
+      });
+      toast('Otwarto folder kwarantanny w Finderze.');
+    }
+
+    async function trashQuarantine() {
+      const folder = document.getElementById('dup-quarantine').value.trim();
+      if (!confirm(`Przenieść całą zawartość folderu:\n${folder}\ndo Kosza macOS?`)) return;
+      const res = await fetch('/api/quarantine/trash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder }),
+      });
+      const data = await res.json();
+      toast(`Przeniesiono ${data.trashed_count} plików z kwarantanny do Kosza macOS.`);
+      await refreshHeaderInfo();
+    }
+
+    async function runDupScan() {
+      const btn = document.getElementById('btn-dups');
+      const qBtn = document.getElementById('btn-quarantine-all');
+      const status = document.getElementById('dup-status');
+      btn.disabled = true;
+      qBtn.disabled = true;
+      status.innerHTML = '<span class="spinner"></span>Skanuję pliki...';
+      try {
+        const folders = document.getElementById('dup-folders').value.split('\n').map(s => s.trim()).filter(Boolean);
+        const include_all_files = document.getElementById('dup-all-files').checked;
+        const find_similar = document.getElementById('dup-similar').checked;
+        const res = await fetch('/api/duplicates/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folders, include_all_files, find_similar }),
+        });
+        DUP_DATA = await res.json();
+        renderDups();
+        status.textContent = `Gotowe — przeskanowano ${DUP_DATA.scanned_files} plików.`;
+      } catch (e) {
+        toast('Błąd skanowania: ' + e.message);
+        status.textContent = 'Błąd: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        qBtn.disabled = false;
+      }
+    }
+
+    function renderDups() {
+      const d = DUP_DATA;
+      const statsEl = document.getElementById('dup-stats');
+      statsEl.classList.remove('hidden');
+      statsEl.innerHTML = `
+        <div class="stat"><div class="val">${d.scanned_files}</div><div class="lbl">Przeskanowanych plików</div></div>
+        <div class="stat"><div class="val">${d.exact_groups_count}</div><div class="lbl">Grup dokładnych duplikatów</div></div>
+        <div class="stat"><div class="val">${d.exact_extra_files_count}</div><div class="lbl">Nadmiarowych kopii</div></div>
+        <div class="stat"><div class="val">${fmtSize(d.exact_reclaimable_bytes)}</div><div class="lbl">Do odzyskania (dokładne)</div></div>
+      `;
+      const qBtn = document.getElementById('btn-quarantine-all');
+      qBtn.classList.toggle('hidden', d.exact_extra_files_count === 0);
+      qBtn.textContent = `Przenieś WSZYSTKIE dokładne kopie (${d.exact_extra_files_count} plików · ${fmtSize(d.exact_reclaimable_bytes)}) do kwarantanny`;
+
+      const container = document.getElementById('dup-results');
+      const all = [
+        ...d.exact_groups.map((g, i) => ({ ...g, domId: `ex-${i}`, tag: 'Dokładny duplikat (SHA-256)' })),
+        ...d.similar_groups.map((g, i) => ({ ...g, domId: `sim-${i}`, tag: 'Wizualnie podobne (dHash)' })),
+      ];
+      if (!all.length) {
+        container.innerHTML = '<div class="card">Brak duplikatów w wybranych folderach!</div>';
+        return;
+      }
+      container.innerHTML = all.slice(0, 60).map(g => {
+        const ext = (g.keep.split('.').pop() || '').toUpperCase();
+        const thumb = g.is_image
+          ? `<img src="/api/thumb?path=${encodeURIComponent(g.keep)}" loading="lazy" />`
+          : `<div class="file-icon">${ext || 'PLIK'}</div>`;
+        return `
+          <div class="dup-group" id="${g.domId}">
+            ${thumb}
+            <div>
+              <div class="row" style="justify-content:space-between;margin-bottom:6px">
+                <span class="badge">${g.tag} · Oszczędność: ${fmtSize(g.reclaimable_bytes)}</span>
+                <button class="secondary" onclick='quarantineGroup("${g.domId}", ${JSON.stringify(g.duplicates)}, this)'>Przenieś kopie (${g.duplicates.length}) do kwarantanny</button>
+              </div>
+              <div class="path-line keep">✔ ZOSTAW: ${g.keep}</div>
+              ${g.duplicates.map(p => `<div class="path-line dup">✖ KOPIA: ${p}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function quarantineGroup(domId, files, btnEl) {
+      btnEl.disabled = true;
+      btnEl.textContent = 'Przenoszę...';
+      try {
+        const quarantine_dir = document.getElementById('dup-quarantine').value.trim();
+        const res = await fetch('/api/duplicates/quarantine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files, quarantine_dir }),
+        });
+        const data = await res.json();
+        const card = document.getElementById(domId);
+        if (card) card.remove();
+        toast(`Przeniesiono ${data.moved_count} kopii do kwarantanny.`);
+        await refreshHeaderInfo();
+      } catch (e) {
+        toast('Błąd: ' + e.message);
+        btnEl.disabled = false;
+      }
+    }
+
+    async function quarantineAllExact() {
+      if (!DUP_DATA) return;
+      const files = DUP_DATA.all_exact_duplicate_paths || [];
+      if (!files.length) return;
+      if (!confirm(`Przenieść WSZYSTKIE ${files.length} dokładnych kopii (${fmtSize(DUP_DATA.exact_reclaimable_bytes)}) do folderu kwarantanny?\n\nOryginały zostają nietknięte, a operację możesz cofnąć przyciskiem Undo.`)) return;
+
+      const btn = document.getElementById('btn-quarantine-all');
+      const status = document.getElementById('dup-status');
+      btn.disabled = true;
+      status.innerHTML = `<span class="spinner"></span>Przenoszę ${files.length} plików do kwarantanny...`;
+      try {
+        const quarantine_dir = document.getElementById('dup-quarantine').value.trim();
+        const res = await fetch('/api/duplicates/quarantine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files, quarantine_dir }),
+        });
+        const data = await res.json();
+        toast(`Gotowe! Przeniesiono ${data.moved_count} kopii do kwarantanny.`);
+        status.textContent = `Przeniesiono ${data.moved_count} kopii do kwarantanny.`;
+        document.getElementById('dup-results').innerHTML =
+          `<div class="card">✔ Przeniesiono <strong>${data.moved_count}</strong> duplikatów do <code>${data.quarantine_dir}</code>. Możesz teraz kliknąć <strong>Otwórz kwarantannę w Finderze</strong> lub <strong>Przenieś kwarantannę do Kosza</strong>.</div>`;
+        btn.classList.add('hidden');
+        await refreshHeaderInfo();
+      } catch (e) {
+        toast('Błąd: ' + e.message);
+        status.textContent = 'Błąd: ' + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function runClassify() {
+      const btn = document.getElementById('btn-classify');
+      const status = document.getElementById('cls-status');
+      btn.disabled = true;
+      status.innerHTML = '<span class="spinner"></span>Analizuję obrazy...';
+      try {
+        const folders = document.getElementById('cls-folders').value.split('\n').map(s => s.trim()).filter(Boolean);
+        const engine = document.getElementById('cls-engine').value;
+        const limitVal = parseInt(document.getElementById('cls-limit').value, 10);
+        const limit = Number.isNaN(limitVal) ? 0 : limitVal;
+        const api_key = document.getElementById('cls-apikey').value.trim();
+        const model = engine === 'ollama' ? document.getElementById('cls-ollama-model').value.trim() : '';
+        const res = await fetch('/api/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folders, engine, limit, api_key, model, categories: CATEGORIES }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Błąd klasyfikacji');
+        }
+        const data = await res.json();
+        CLASSIFIED_ITEMS = data.items;
+        renderClassified();
+        status.textContent = `Przeanalizowano ${data.count} obrazów.`;
+      } catch (e) {
+        toast('Błąd: ' + e.message);
+        status.textContent = e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderClassified() {
+      const counts = {};
+      CATEGORIES.forEach(c => counts[c.id] = 0);
+      CLASSIFIED_ITEMS.forEach(it => { counts[it.category] = (counts[it.category] || 0) + 1; });
+
+      const statsEl = document.getElementById('cls-stats');
+      statsEl.classList.remove('hidden');
+      statsEl.innerHTML = CATEGORIES.map(c => `
+        <div class="stat">
+          <div class="val">${counts[c.id] || 0}</div>
+          <div class="lbl">${c.label}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('btn-apply-org').classList.toggle('hidden', CLASSIFIED_ITEMS.length === 0);
+
+      const gal = document.getElementById('cls-gallery');
+      const MAX_SHOW = 120;
+      const slice = CLASSIFIED_ITEMS.slice(0, MAX_SHOW);
+      gal.innerHTML = slice.map((it, idx) => {
+        const pct = Math.round((it.confidence || 0) * 100);
+        const cls = pct >= 80 ? 'high' : (pct < 60 ? 'low' : '');
+        const opts = CATEGORIES.map(c => `<option value="${c.id}" ${c.id === it.category ? 'selected' : ''}>${c.label}</option>`).join('');
+        return `
+          <div class="item-card">
+            <img src="/api/thumb?path=${encodeURIComponent(it.path)}" loading="lazy" />
+            <div class="item-body">
+              <div class="row" style="justify-content:space-between">
+                <span class="badge ${cls}">Pewność: ${pct}%</span>
+                <span class="meta">${it.width}×${it.height} · ${fmtSize(it.size_bytes)}</span>
+              </div>
+              <div class="fname">${it.name}</div>
+              <div class="meta">${it.reason || ''}</div>
+              <select onchange="CLASSIFIED_ITEMS[${idx}].category = this.value">${opts}</select>
+            </div>
+          </div>
+        `;
+      }).join('') + (CLASSIFIED_ITEMS.length > MAX_SHOW
+        ? `<div class="card" style="grid-column:1/-1;text-align:center">Wyświetlono podgląd pierwszych ${MAX_SHOW} z <strong>${CLASSIFIED_ITEMS.length}</strong> przeanalizowanych obrazów. Przycisk <strong>Przenieś wybrane do katalogów</strong> przeniesie wszystkie ${CLASSIFIED_ITEMS.length} plików.</div>`
+        : '');
+    }
+
+    async function applyOrganize() {
+      if (!CLASSIFIED_ITEMS.length) return;
+      const target_root = document.getElementById('cls-target').value.trim();
+      if (!confirm(`Przenieść ${CLASSIFIED_ITEMS.length} plików do podfolderów w:\n${target_root}\n\n(Operację możesz cofnąć przyciskiem Undo.)`)) return;
+      const res = await fetch('/api/organize/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target_root,
+          items: CLASSIFIED_ITEMS.map(it => ({ source: it.path, category: it.category })),
+        }),
+      });
+      const data = await res.json();
+      toast(`Przeniesiono ${data.moved_count} plików do ${data.target_root}`);
+      CLASSIFIED_ITEMS = [];
+      renderClassified();
+    }
+
+    async function undoLast() {
+      const res = await fetch('/api/undo', { method: 'POST' });
+      const data = await res.json();
+      toast(data.restored_count ? `Przywrócono ${data.restored_count} plików na pierwotne miejsca.` : data.message);
+      await refreshHeaderInfo();
+    }
+
+    init();
+  </script>
+</body>
+</html>

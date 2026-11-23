@@ -1,0 +1,11 @@
+[project]
+name = "photo-organizer-ai"
+version = "0.1.0"
+description = "Lokalna aplikacja AI do wykrywania duplikatów i katalogowania zdjęć oraz projektów (frontend telefonu, strony, wizualizacje klinik)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "pillow>=11.0.0",
+    "httpx>=0.28.0",
+]
